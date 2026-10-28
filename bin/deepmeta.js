@@ -15,6 +15,7 @@ Options:
   --min-string <n>     minimum length for --strings (default 6)
   --depth <n>          how deep to go into archives and Office files (default: unlimited)
   -c, --compact        single-line JSON
+  -V, --version        print the installed version
   -h, --help           show this help
 `;
 
@@ -26,6 +27,10 @@ function walk(p, acc = []) {
 
 (async () => {
   const args = process.argv.slice(2);
+  if (args[0] === '--version' || args[0] === '-V') {
+    console.log(require('../package.json').version);
+    return;
+  }
   if (args[0] === 'edit') {
     try {
       await require('../src/edit').runEditCli(args.slice(1));
