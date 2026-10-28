@@ -166,4 +166,4 @@ async function analyze(file, opts = {}, depth = 0) {
 }
 
 const close = () => exiftool.end();
-module.exports = { analyze, close };
+module.exports = { analyze, close, exiftool };

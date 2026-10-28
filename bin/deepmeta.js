@@ -5,6 +5,7 @@ const path = require('path');
 const { analyze, close } = require('../src/index');
 
 const HELP = `deepmeta <file|folder> [more...] [options]
+deepmeta edit <file> [options]      edit metadata (see: deepmeta edit --help)
 
 Dump every piece of metadata and embedded data from any file.
 
@@ -25,6 +26,16 @@ function walk(p, acc = []) {
 
 (async () => {
   const args = process.argv.slice(2);
+  if (args[0] === 'edit') {
+    try {
+      await require('../src/edit').runEditCli(args.slice(1));
+    } catch (e) {
+      console.error(e.message || e);
+      process.exitCode = 1;
+    }
+    await close();
+    return;
+  }
   const opts = {};
   const targets = [];
   let out;
