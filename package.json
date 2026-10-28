@@ -1,0 +1,16 @@
+{
+  "name": "deepmeta",
+  "version": "1.0.0",
+  "description": "Dump every piece of metadata and embedded data from any file: images, audio, video, PDF, Office docs, archives and unknown binaries.",
+  "bin": { "deepmeta": "bin/deepmeta.js" },
+  "main": "src/index.js",
+  "scripts": { "test": "node --test" },
+  "keywords": ["metadata", "exif", "pdf", "docx", "audio", "forensics", "cli"],
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "files": ["bin", "src", "README.md"],
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "exiftool-vendored": "^29.0.0"
+  }
+}
