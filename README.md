@@ -17,6 +17,8 @@ npm install
 node bin/deepmeta.js photo.jpg
 ```
 
+Needs Node 18 or newer. Windows works out of the box. On macOS and Linux, ExifTool runs on Perl, which ships with both. `ffprobe` is optional.
+
 ## Use
 
 ```

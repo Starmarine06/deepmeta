@@ -1,0 +1,30 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [18, 20, 22]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci
+      - run: npm test
+      - name: Install the packed tarball in a clean folder and run it
+        shell: bash
+        run: |
+          npm pack --silent
+          mkdir ../clean && cp deepmeta-*.tgz ../clean/ && cd ../clean
+          npm init -y > /dev/null
+          npm install ./deepmeta-*.tgz
+          printf 'hello' > sample.txt
+          npx deepmeta sample.txt -c | grep -q '"sha256"'
