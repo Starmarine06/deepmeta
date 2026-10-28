@@ -60,7 +60,7 @@ With no flags it opens an interactive editor. Commands: `list [text]`, `set Tag=
 
 The original file is safe by default. Edits go to a copy named `photo.edited.jpg` (or the path you give with `-o`). Pass `--in-place` to overwrite the original, which keeps `photo.jpg.bak` unless you add `--no-backup`.
 
-You can only edit formats ExifTool can write (JPEG, PNG, TIFF, PDF, MP3, MP4 and many more). For anything else you get a plain error and the file is left alone.
+You can edit any format ExifTool can write (JPEG, PNG, TIFF, PDF, MP3, MP4 and many more). Word, Excel and PowerPoint files (.docx, .xlsx, .pptx) are edited by deepmeta itself, since ExifTool can't write them. There you can set Author (or Creator), LastModifiedBy, Title, Subject, Description, Keywords, Category, ContentStatus, Company and Manager. For anything else you get a plain error, the file is left alone, and no stray copy is kept.
 
 ## Limits
 

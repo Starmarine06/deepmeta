@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const AdmZip = require('adm-zip');
 const { exiftool } = require('./index');
 
 const HIDDEN_GROUPS = /^(System|ExifTool|File|Composite):/;
@@ -37,7 +38,78 @@ async function readEditable(file) {
   );
 }
 
+
+// Word, Excel and PowerPoint files: ExifTool can't write them, so edit the property XML directly.
+const OOXML_CORE = {
+  creator: 'dc:creator', author: 'dc:creator',
+  lastmodifiedby: 'cp:lastModifiedBy',
+  title: 'dc:title', subject: 'dc:subject',
+  description: 'dc:description', comments: 'dc:description',
+  keywords: 'cp:keywords', category: 'cp:category', contentstatus: 'cp:contentStatus',
+};
+const OOXML_APP = { company: 'Company', manager: 'Manager' };
+const OOXML_SUPPORTED = [...new Set([...Object.keys(OOXML_CORE), ...Object.keys(OOXML_APP)])].join(', ');
+
+function isOoxml(file) {
+  try {
+    return !!new AdmZip(file).getEntry('docProps/core.xml');
+  } catch {
+    return false;
+  }
+}
+
+// Lets the diff match "Author" against the "Creator" key ExifTool reports.
+const localName = (bare) => {
+  const t = OOXML_CORE[bare.toLowerCase()] || OOXML_APP[bare.toLowerCase()];
+  return (t ? t.split(':').pop() : bare).toLowerCase();
+};
+
+function setXml(xml, tag, value) {
+  const re = new RegExp(`<${tag}(\\s[^>]*)?(/>|>[\\s\\S]*?</${tag}>)`);
+  if (value === null) return xml.replace(re, () => '');
+  const esc = String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const el = `<${tag}>${esc}</${tag}>`;
+  if (re.test(xml)) return xml.replace(re, () => el);
+  const close = xml.match(/<\/(cp:coreProperties|Properties)>/);
+  return close ? xml.replace(close[0], () => el + close[0]) : xml;
+}
+
+function applyOoxmlEdits(target, { set = {}, del = [], strip = false }) {
+  const zip = new AdmZip(target);
+  const changes = []; // [partName, xmlTag, value|null]
+  const resolve = (key, value) => {
+    const bare = key.split(':').pop().toLowerCase();
+    if (OOXML_CORE[bare]) changes.push(['docProps/core.xml', OOXML_CORE[bare], value]);
+    else if (OOXML_APP[bare]) changes.push(['docProps/app.xml', OOXML_APP[bare], value]);
+    else throw new Error(`Can't set "${key}" in an Office file. Editable here: ${OOXML_SUPPORTED}.`);
+  };
+  if (strip) {
+    for (const t of new Set(Object.values(OOXML_CORE))) changes.push(['docProps/core.xml', t, null]);
+    for (const t of Object.values(OOXML_APP)) changes.push(['docProps/app.xml', t, null]);
+  }
+  for (const [k, v] of Object.entries(set)) resolve(k, v);
+  for (const k of del) resolve(k, null);
+
+  const xmls = {};
+  for (const [part, tag, value] of changes) {
+    if (!(part in xmls)) {
+      const entry = zip.getEntry(part);
+      if (!entry) {
+        if (value === null) continue;
+        throw new Error(`This file has no ${part}, so it can't hold that property.`);
+      }
+      xmls[part] = entry.getData().toString('utf8');
+    }
+    xmls[part] = setXml(xmls[part], tag, value);
+  }
+  for (const [part, xml] of Object.entries(xmls)) zip.updateFile(part, Buffer.from(xml, 'utf8'));
+  const tmp = `${target}.tmp`;
+  zip.writeZip(tmp);
+  fs.renameSync(tmp, target);
+}
+
 async function applyEdits(target, { set = {}, del = [], strip = false }) {
+  if (isOoxml(target)) return applyOoxmlEdits(target, { set, del, strip });
   const tags = { ...set };
   for (const k of del) tags[k] = null;
   try {
@@ -63,8 +135,10 @@ function parseSet(items) {
 async function diffReport(before, after, keys) {
   const lines = [];
   for (const k of keys) {
-    const bare = k.split(':').pop();
-    const match = Object.keys({ ...before, ...after }).filter((x) => x === k || x.endsWith(`:${bare}`));
+    const bare = localName(k.split(':').pop());
+    const match = Object.keys({ ...before, ...after }).filter(
+      (x) => x === k || x.toLowerCase().endsWith(`:${bare}`)
+    );
     for (const m of match.length ? match : [k]) {
       const b = before[m] === undefined ? '(none)' : show(before[m]);
       const a = after[m] === undefined ? '(none)' : show(after[m]);
@@ -77,7 +151,14 @@ async function diffReport(before, after, keys) {
 async function save(file, edits, opts) {
   const before = await readEditable(file);
   const target = prepareTarget(file, opts);
-  await applyEdits(target, edits);
+  try {
+    await applyEdits(target, edits);
+  } catch (e) {
+    // A failed edit must not leave a stray copy or backup behind.
+    if (!opts.inPlace) fs.rmSync(target, { force: true });
+    else if (!opts.noBackup) fs.rmSync(`${file}.bak`, { force: true });
+    throw e;
+  }
   const after = await readEditable(target);
   const keys = [...Object.keys(edits.set), ...edits.del];
   const lines = await diffReport(before, after, edits.strip ? Object.keys(before) : keys);
