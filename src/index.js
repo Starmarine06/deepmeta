@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { execFile } = require('child_process');
 const AdmZip = require('adm-zip');
 const { exiftool } = require('exiftool-vendored');
+const { isSqlite, readSqlite } = require('./sqlite');
 
 const MAX_BUFFER_SCAN = 512 * 1024 * 1024;
 const ZIP_MAGIC = [0x50, 0x4b, 0x03, 0x04];
@@ -160,6 +161,14 @@ async function analyze(file, opts = {}, depth = 0) {
       result.container = await readZip(file, opts, depth);
     } catch (e) {
       result.container = { error: String(e.message || e) };
+    }
+  }
+
+  if (st.size >= 100 && isSqlite(file)) {
+    try {
+      result.sqlite = readSqlite(file);
+    } catch (e) {
+      result.sqlite = { error: String(e.message || e) };
     }
   }
   return result;

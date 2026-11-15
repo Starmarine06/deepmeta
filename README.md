@@ -46,6 +46,7 @@ Folders are walked recursively.
 - **ffprobe**: streams, chapters, programs and container data (only if `ffprobe` is on your PATH)
 - **rawXmp**: any XMP packet found anywhere in the bytes, even in formats ExifTool doesn't expect it in
 - **strings**: printable text from the raw bytes (with `--strings`)
+- **sqlite**: for SQLite databases (.db, .sqlite, browser history, app data), the header fields (page size, encoding, user version, application id, the SQLite version that last wrote it) plus every table, index, view and trigger with its schema SQL and row count. The schema listing needs Node 22.5 or newer; older versions still get the header
 - **container**: for zip-based files (docx, xlsx, pptx, odt, epub, jar, apk, zip), every entry with its sizes, CRC and comments, the full text of every XML part (core and app properties, custom properties, comments, tracked changes), and a full report on each embedded image or media file
 
 ## Edit metadata
